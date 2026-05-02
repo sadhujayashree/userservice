@@ -14,6 +14,7 @@ import dev.jaya.userservice.repositories.UserRepo;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -21,6 +22,7 @@ import org.springframework.stereotype.Service;
 import javax.crypto.SecretKey;
 import java.util.*;
 
+@Slf4j
 @Service
 public class AuthService implements IAuthService{
     @Autowired
@@ -36,34 +38,41 @@ public class AuthService implements IAuthService{
 
     @Override
     public User signUp(String name, String email, String password){
-        Optional<User> optionalUser = userRepo.findByEmail(email);
-        if(optionalUser.isPresent()){
-            throw new UserAlreadyExistException("User already exist");
-        }
-        User user = new User();
-        user.setName(name);
-        user.setEmail(email);
-        user.setPassword(bCryptPasswordEncoder.encode(password));
-        user.setCreatedAt(new Date());
-        user.setModifiedAt(new Date());
-        user.setState(State.ACTIVE);
+        log.info("User creation started");
+        try {
+            Optional<User> optionalUser = userRepo.findByEmail(email);
+            if(optionalUser.isPresent()){
+                throw new UserAlreadyExistException("User already exist");
+            }
+            log.debug("Debugging user creation logic");
+            User user = new User();
+            user.setName(name);
+            user.setEmail(email);
+            user.setPassword(bCryptPasswordEncoder.encode(password));
+            user.setCreatedAt(new Date());
+            user.setModifiedAt(new Date());
+            user.setState(State.ACTIVE);
 
-        Role role;
-        Optional<Role> optionalRole = roleRepo.findByName("DEFAULT");
-        if(optionalRole.isPresent()){
-            role = optionalRole.get();
-        }else{
-            role = new Role();
-            role.setName("DEFAULT");
-            role.setCreatedAt(new Date());
-            role.setModifiedAt(new Date());
-            role.setState(State.ACTIVE);
-            roleRepo.save(role);
+            Role role;
+            Optional<Role> optionalRole = roleRepo.findByName("DEFAULT");
+            if(optionalRole.isPresent()){
+                role = optionalRole.get();
+            }else{
+                role = new Role();
+                role.setName("DEFAULT");
+                role.setCreatedAt(new Date());
+                role.setModifiedAt(new Date());
+                role.setState(State.ACTIVE);
+                roleRepo.save(role);
+            }
+            List<Role> roles = new ArrayList<>();
+            roles.add(role);
+            user.setRoles(roles);
+            return userRepo.save(user);
+        } catch (Exception e) {
+            log.error("Error occurred while creating user");
+            throw e;
         }
-        List<Role> roles = new ArrayList<>();
-        roles.add(role);
-        user.setRoles(roles);
-        return userRepo.save(user);
     }
 
     public UserToken login(String email, String password){
